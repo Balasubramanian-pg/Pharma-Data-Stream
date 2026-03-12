@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: pharma-data-stream
+  group: pharma-stream
   cancel-in-progress: false
 
 jobs:
@@ -17,7 +17,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-
     - name: Checkout repository
       uses: actions/checkout@v4
 
@@ -29,14 +28,16 @@ jobs:
     - name: Install dependencies
       run: pip install -r requirements.txt
 
-    - name: Run generator
+    - name: Run data generator
       run: python generate_data.py
 
     - name: Commit and push generated data
       run: |
         git config --global user.name "github-actions"
         git config --global user.email "actions@github.com"
+
         git add prescriptions_stream.csv
         git commit -m "Auto generated pharma prescription data" || echo "No changes"
-        git pull --rebase
-        git push
+
+        git pull --rebase origin main
+        git push origin main
