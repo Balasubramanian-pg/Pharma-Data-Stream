@@ -1,24 +1,21 @@
 name: Generate Pharma Data
-
 on:
   schedule:
     - cron: "*/35 * * * *"
   workflow_dispatch:
-
 permissions:
   contents: write
-
 concurrency:
   group: pharma-stream
   cancel-in-progress: false
-
 jobs:
   generate-data:
     runs-on: ubuntu-latest
-
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Full history needed for rebase
 
     - name: Setup Python
       uses: actions/setup-python@v5
@@ -36,8 +33,15 @@ jobs:
         git config --global user.name "github-actions"
         git config --global user.email "actions@github.com"
 
-        git add prescriptions_stream.csv
-        git commit -m "Auto generated pharma prescription data" || echo "No changes"
-
+        # Pull latest before committing to avoid divergence
         git pull --rebase origin main
-        git push origin main
+
+        git add prescriptions_stream.csv
+        git commit -m "Auto generated pharma prescription data" || echo "No changes to commit"
+
+        # Retry push up to 3 times in case of race condition
+        for i in 1 2 3; do
+          git push origin main && break
+          echo "Push failed (attempt $i), retrying after pull..."
+          git pull --rebase origin main
+        done
