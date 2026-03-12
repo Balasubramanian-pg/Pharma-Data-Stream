@@ -26,21 +26,25 @@ jobs:
       run: pip install -r requirements.txt
 
     - name: Pull latest before generating
-      run: git pull --rebase origin main   # ← sync CSV BEFORE appending
+      run: git pull --rebase origin main
 
     - name: Run data generator
-      run: python generate_data.py         # ← now appends to up-to-date CSV
+      run: python generate_data.py
 
-    - name: Commit and push generated data
+    - name: Commit and push
       run: |
         git config --global user.name "github-actions"
         git config --global user.email "actions@github.com"
         git add prescriptions_stream.csv
         git commit -m "Auto generated pharma prescription data" || echo "No changes to commit"
 
-        # Retry push in case another run sneaks in between pull and push
+        # Retry with force-with-lease — safe after rebase, breaks the doom loop
         for i in 1 2 3; do
-          git push origin main && break
-          echo "Attempt $i failed, re-syncing..."
-          git pull --rebase origin main
+          git push --force-with-lease origin main && break || {
+            echo "Attempt $i failed, re-syncing..."
+            git pull --rebase origin main
+          }
         done
+
+        # Fail loudly if all retries exhausted
+        git push --force-with-lease origin main
